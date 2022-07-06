@@ -2,18 +2,27 @@ package com.crio.warmup.stock;
 
 import com.crio.warmup.stock.dto.PortfolioTrade;
 import com.crio.warmup.stock.log.UncaughtExceptionHandler;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.logging.Logger;
 import org.apache.logging.log4j.ThreadContext;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 
 
 public class PortfolioManagerApplication {
@@ -34,7 +43,6 @@ public class PortfolioManagerApplication {
   //  Note:
   //  1. There can be few unused imports, you will need to fix them to make the build pass.
   //  2. You can use "./gradlew build" to check if your code builds successfully.
-
   public static List<String> mainReadFile(String[] args) throws IOException, URISyntaxException {
     ObjectMapper objectMapper = getObjectMapper();
     File input = resolveFileFromResources(args[0]);
@@ -46,16 +54,67 @@ public class PortfolioManagerApplication {
       }
     }
     return list;
-    // return Collections.emptyList();
   }
 
 
   // Note:
   // 1. You may need to copy relevant code from #mainReadQuotes to parse the Json.
   // 2. Remember to get the latest quotes from Tiingo API.
+  // Note:
+  // Remember to confirm that you are getting same results for annualized returns as in Module 3.
+  public static List<String> mainReadQuotes(String[] args) throws IOException, URISyntaxException {
 
+    String token = "9ff2bf08ab1c8453cc8d60b1822122be09e4b5d7";
+    List<PortfolioTrade> portfolioTrades = readTradesFromJson(args[0]);
+    Map<String, Double> map = new TreeMap<>();
+    List<String> quotes = new ArrayList<>();
+    RestTemplate restTemplate = new RestTemplate();
+    ResponseEntity<String> response;
+    LocalDate endDate = LocalDate.parse(args[1]);
+    ObjectMapper objectMapper = getObjectMapper();
 
+    for (PortfolioTrade trade : portfolioTrades) {
+      String url = prepareUrl(trade, endDate, token);
+      response = restTemplate.getForEntity(url, String.class);
+      JsonNode json = objectMapper.readTree(response.getBody());
+      json = json.path(json.size() - 1).get("close");
+      double closePrice = json.doubleValue();
 
+      map.put(trade.getSymbol(), closePrice);
+      quotes.add(trade.getSymbol());
+    }
+
+    Collections.sort(quotes, new Comparator<String>() {
+      @Override
+      public int compare(String a, String b) {
+        return (int) (map.get(a) - map.get(b));
+      }
+    });
+
+    return quotes;
+  }
+
+  // TODO:
+  // After refactor, make sure that the tests pass by using these two commands
+  // ./gradlew test --tests PortfolioManagerApplicationTest.readTradesFromJson
+  // ./gradlew test --tests PortfolioManagerApplicationTest.mainReadFile
+  public static List<PortfolioTrade> readTradesFromJson(String filename)
+      throws IOException, URISyntaxException {
+    ObjectMapper objectMapper = getObjectMapper();
+    File input = resolveFileFromResources(filename);
+    List<PortfolioTrade> portfolioTrades =
+        objectMapper.readValue(input, new TypeReference<List<PortfolioTrade>>() {});
+    return portfolioTrades;
+  }
+
+  // TODO:
+  // Build the Url using given parameters and use this function in your code to cann the API.
+  public static String prepareUrl(PortfolioTrade trade, LocalDate endDate, String token) {
+
+    String url = "https://api.tiingo.com/tiingo/daily/" + trade.getSymbol() + "/prices?startDate="
+        + trade.getPurchaseDate() + "&endDate=" + endDate + "&token=" + token;
+    return url;
+  }
 
 
 
@@ -75,8 +134,8 @@ public class PortfolioManagerApplication {
   }
 
   private static File resolveFileFromResources(String filename) throws URISyntaxException {
-    return Paths.get(
-        Thread.currentThread().getContextClassLoader().getResource(filename).toURI()).toFile();
+    return Paths.get(Thread.currentThread().getContextClassLoader().getResource(filename).toURI())
+        .toFile();
   }
 
   private static ObjectMapper getObjectMapper() {
@@ -123,14 +182,10 @@ public class PortfolioManagerApplication {
     String functionNameFromTestFileInStackTrace = "PortfolioManagerApplicationTest.mainReadFile()";
     String lineNumberFromTestFileInStackTrace = "29";
 
-    return Arrays.asList(new String[]{valueOfArgument0, resultOfResolveFilePathArgs0,
-        toStringOfObjectMapper, functionNameFromTestFileInStackTrace,
-        lineNumberFromTestFileInStackTrace});
+    return Arrays.asList(
+        new String[] {valueOfArgument0, resultOfResolveFilePathArgs0, toStringOfObjectMapper,
+            functionNameFromTestFileInStackTrace, lineNumberFromTestFileInStackTrace});
   }
-
-
-  // Note:
-  // Remember to confirm that you are getting same results for annualized returns as in Module 3.
 
 
 
@@ -138,10 +193,9 @@ public class PortfolioManagerApplication {
     Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler());
     ThreadContext.put("runId", UUID.randomUUID().toString());
 
-    printJsonObject(mainReadFile(args));
-
-
+    printJsonObject(mainReadQuotes(args));
 
   }
 }
+
 
