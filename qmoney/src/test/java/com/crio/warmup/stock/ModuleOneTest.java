@@ -26,13 +26,38 @@ class ModuleOneTest {
   void mainReadFileEdgecase() throws Exception {
     //given
     String filename = "assessments/empty.json";
-    List<String> expected = Arrays.asList(new String[]{});
+    List<String> expected = Arrays.asList(new String[] {});
 
     //when
-    List<String> results = PortfolioManagerApplication
-        .mainReadFile(new String[]{filename});
+    List<String> results = PortfolioManagerApplication.mainReadFile(new String[] {filename});
 
     //then
+    Assertions.assertEquals(expected, results);
+  }
+  
+  @Test
+  void mainReadFile2() throws Exception {
+    // given
+    String filename = "assessments/trades.json";
+    List<String> expected = Arrays.asList(new String[] {"MSFT", "CSCO", "CTS"});
+
+    // when
+    List<String> results = PortfolioManagerApplication.mainReadFile(new String[] {filename});
+
+    // then
+    Assertions.assertEquals(expected, results);
+  }
+
+  @Test
+  void mainReadFileEdgecaseV2() throws Exception {
+    // given
+    String filename = "assessments/empty.json";
+    List<String> expected = Arrays.asList(new String[] {});
+
+    // when
+    List<String> results = PortfolioManagerApplication.mainReadFile(new String[] {filename});
+
+    // then
     Assertions.assertEquals(expected, results);
   }
 
